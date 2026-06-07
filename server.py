@@ -1,41 +1,47 @@
 import socket
-import threading
+from _thread import *
+import sys
 
-HEADER = 64
-PORT =  5050
-SERVER = socket.gethostbyname(socket.gethostname())
-ADDR = (SERVER, PORT)
-FORMAT = "utf-8"
-DISCONNET_MESSAGE ="!DISCONNECT"
+server = socket.gethostbyname(socket.gethostname())
+port = 5050
 
-server = socket.socket(socket.AF_INET, socket.SOCK_STREAM) 
-server.bind(ADDR)
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-def handle_client(conn, addr):
-    print(f"[NEW CONNECTION] {addr} connected.")
-    connected = True
-    while connected:
-        msg_length = conn.recv(HEADER).decode(FORMAT)
-        if msg_length:
-            msg_length = int(msg_length)
-            msg = conn.recv(msg_length).decode(FORMAT)
-            if msg == DISCONNET_MESSAGE:
-                connected = False
+try:
+    s.bind((server, port))
+except socket.error as e:
+    str(e)
 
-            print(f"[{addr}] {msg}")
-
-
-
-
-
-def start():
-    server.listen()
-    print(f"[LISTENING] Server is listening on {SERVER}")
+s.listen(2)
+print("Waiting for a connection, Server Started")
+ 
+def threaded_client(conn):
+    conn.send(str.encode("Connected"))
+    reply = ""
     while True:
-        conn, addr = server.accept()
-        thread = threading.Thread(target = handle_client , args = (conn, addr))
-        thread.start()
-        print(f"[ACTIVE CONNECTIONS] {threading.active_count() - 1}")
+        try:
+            data = conn.recv(2048)
 
-print("Server is starting...")
-start()
+            if not data:
+                print("Disconnected")
+                break
+
+            reply = data.decode("utf-8")
+
+            print("Received:", reply)
+            print("Sending:", reply)
+
+            conn.sendall(data)
+
+        except Exception as e:
+            print("Error:", e)
+            break
+    print("Lost connection")
+    conn.close()
+
+
+while True:
+    conn, addr = s.accept()
+    print("Connected by", addr)
+
+    start_new_thread(threaded_client, (conn, ))
